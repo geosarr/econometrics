@@ -1,5 +1,6 @@
-mod binary_treatment;
-mod data;
+pub mod binary_treatment;
+pub mod data;
+pub mod statistical_test;
 
 #[cfg(test)]
 mod tests {
