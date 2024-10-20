@@ -15,7 +15,7 @@ impl<F> BinaryTreatment<F> {
             intercept: None,
         }
     }
-    pub fn fit<D, Y>(&mut self, treatment: &D, output: &Y)
+    pub fn fit<D, Y>(&mut self, treatment: &D, output: &Y) -> bool
     where
         F: Float,
         for<'a> &'a D: IntoIterator<Item = &'a F>,
@@ -39,7 +39,9 @@ impl<F> BinaryTreatment<F> {
             }
             pos += 1;
         }
-        let mean_output_non_treat = sum_output_non_treat / n_non_treat;
+        if (n_non_treat == F::zero()) | (n_treat == F::zero()) {
+            return false;
+        }
         let mean_output_treat = sum_output_treat / n_treat;
         let candidate_causal_effect = mean_output_treat - mean_output_non_treat;
         let n_sample = n_non_treat + n_treat;
@@ -47,5 +49,6 @@ impl<F> BinaryTreatment<F> {
         let mean_treatment = sum_treatment / n_sample;
         self.intercept = Some(mean_output - candidate_causal_effect * mean_treatment);
         self.candidate_causal_effect = Some(candidate_causal_effect);
+        true
     }
 }
