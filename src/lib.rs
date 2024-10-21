@@ -20,6 +20,30 @@ where
     }
 }
 
+pub(crate) fn variance<S, T>(sample: &S) -> Option<(T, T, T)>
+where
+    T: num_traits::Float,
+    for<'a> &'a S: IntoIterator<Item = &'a T>,
+{
+    let (mean, n) = if let Some(m) = mean(S) {
+        m
+    } else {
+        return None;
+    };
+    let mut var = T::zero();
+    for x in sample {
+        var = var + (x - mean).powi(2);
+        n = n + T::one();
+    }
+    if n > T::one() {
+        let mean = m / n;
+        let var = (T::one() / n) * var;
+        Some((var, mean, n))
+    } else {
+        None
+    }
+}
+
 /// Calcule la fonction de répartition
 /// de la loi normale centrée réduite en utilisant
 /// la formule proposée par [Dia (2023)][lien].
