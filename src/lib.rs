@@ -1,3 +1,5 @@
+use num_traits::NumCast;
+
 pub mod binary_treatment;
 pub mod data;
 pub mod statistical_test;
@@ -45,12 +47,17 @@ where
 }
 
 /// Computes the cumulative distribution function of the standard normal using
-/// the formula of [Dia (2023)][lien].
+/// the formula of [Dia (2023)][paper]. The number `x` should be convertible to
+/// `f32`.
 ///
-/// [lien]: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4487559
-pub(crate) fn cdf_n01(x: &f32) -> f32 {
-    let x2 = x.powi(2);
-    let abs_x = x.abs();
+/// [paper]: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4487559
+pub(crate) fn cdf_n01<T: num_traits::Float>(x: T) -> Option<T> {
+    let abs_x = if let Some(x) = <f32 as NumCast>::from(x) {
+        x
+    } else {
+        return None;
+    };
+    let x2 = abs_x.powi(2);
     let one_minus_cdf_abs_x = (0.39894228040143268 / (abs_x + 2.92678600515804815))
         * ((x2 + 8.42742300458043240 * abs_x + 18.38871225773938487)
             / (x2 + 5.81582518933527391 * abs_x + 8.97280659046817350))
@@ -63,10 +70,10 @@ pub(crate) fn cdf_n01(x: &f32) -> f32 {
         * ((x2 + 3.83362947800146179 * abs_x + 11.61511226260603247)
             / (x2 + 4.92081346632882033 * abs_x + 24.12333774572479110))
         * ((-x2 / 2.).exp());
-    if *x > 0. {
-        1. - one_minus_cdf_abs_x
+    if x > T::zero() {
+        T::from(1. - one_minus_cdf_abs_x)
     } else {
-        one_minus_cdf_abs_x
+        T::from(one_minus_cdf_abs_x)
     }
 }
 
@@ -76,101 +83,108 @@ pub(crate) fn cdf_n01(x: &f32) -> f32 {
 /// Adapted from this [crate][page]
 ///
 /// page: https://docs.rs/distrs/latest/src/distrs/students_t.rs.html#28-116
-pub(crate) fn cdf_student(x: f32, n: f32) -> f32 {
-    use core::f32::consts::PI;
-
+pub(crate) fn cdf_student<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -> Option<T> {
+    let one = T::one();
     // TODO support n > 0.0
-    if x.is_nan() || n.is_nan() || n < 1.0 {
-        return f32::NAN;
+    if x.is_nan() || n.is_nan() || n < one {
+        return Some(T::nan());
     }
 
-    if x == f32::NEG_INFINITY {
-        return 0.0;
+    let zero = T::zero();
+    if x == T::neg_infinity() {
+        return Some(zero);
+    }
+    if x == T::infinity() {
+        return Some(one);
     }
 
-    if x == f32::INFINITY {
-        return 1.0;
+    if n == T::infinity() {
+        return cdf_n01(x);
     }
 
-    if n == f32::INFINITY {
-        return cdf_n01(&(x as f32)) as f32;
-    }
+    let (start, sign) = if x < zero { (zero, one) } else { (one, -one) };
 
-    let (start, sign) = if x < 0.0 { (0.0, 1.0) } else { (1.0, -1.0) };
-
-    let mut z = 1.0;
+    let mut z = one;
     let t = x * x;
     let mut y = t / n;
-    let mut b = 1.0 + y;
+    let mut b = one + y;
 
-    if n > n.floor() || (n >= 20.0 && t < n) || n > 200.0 {
+    if n > n.floor() || (n >= T::from(20.0).unwrap() && t < n) || n > T::from(200.0).unwrap() {
         // asymptotic series for large or noninteger n
-        if y > 10e-6 {
+        if y > T::from(10e-6).unwrap() {
             y = b.ln();
         }
-        let a = n - 0.5;
-        b = 48.0 * a * a;
-        y *= a;
-        y = (((((-0.4 * y - 3.3) * y - 24.0) * y - 85.5) / (0.8 * y * y + 100.0 + b) + y + 3.0)
+        let a = n - T::from(0.5).unwrap();
+        b = T::from(48.0).unwrap() * a * a;
+        y = y * a;
+        y = (((((T::from(-0.4).unwrap() * y - T::from(3.3).unwrap()) * y
+            - T::from(24.0).unwrap())
+            * y
+            - T::from(85.5).unwrap())
+            / (T::from(0.8).unwrap() * y * y + T::from(100.0).unwrap() + b)
+            + y
+            + T::from(3.0).unwrap())
             / b
-            + 1.0)
+            + T::from(1.0).unwrap())
             * y.sqrt();
-        return start + sign * (cdf_n01(&(-y as f32)) as f32);
+        return cdf_n01(-y).map(|cdf_y| start + sign * cdf_y);
     }
 
     // make n mutable and int
     // n is int between 1 and 200 if made it here
-    let mut n = n as u8;
+    let mut n = <u8 as NumCast>::from(n).unwrap();
+    let pi = T::PI();
+    let two = T::from(2.).unwrap();
 
-    if n < 20 && t < 4.0 {
+    if n < 20 && t < T::from(4.0).unwrap() {
         // nested summation of cosine series
         y = y.sqrt();
         let mut a = y;
         if n == 1 {
-            a = 0.0;
+            a = zero;
         }
 
         // loop
         if n > 1 {
             n -= 2;
             while n > 1 {
-                a = (n - 1) as f32 / (b * n as f32) * a + y;
+                a = T::from(n - 1).unwrap() / (b * T::from(n).unwrap()) * a + y;
                 n -= 2;
             }
         }
         a = if n == 0 {
             a / b.sqrt()
         } else {
-            (y.atan() + a / b) * (2.0 / PI)
+            (y.atan() + a / b) * (two / pi)
         };
-        return start + sign * (z - a) / 2.0;
+        return Some(start + sign * (z - a) / two);
     }
 
     // tail series expanation for large t-values
     let mut a = b.sqrt();
-    y = a * n as f32;
+    y = a * T::from(n).unwrap();
     let mut j = 0;
     while a != z {
         j += 2;
         z = a;
-        y = y * (j - 1) as f32 / (b * j as f32);
-        a += y / (n + j) as f32;
+        y = y * T::from(j - 1).unwrap() / (b * T::from(j).unwrap());
+        a = a + y / T::from(n + j).unwrap();
     }
-    z = 0.0;
-    y = 0.0;
+    z = zero;
+    y = zero;
     a = -a;
 
     // loop (without n + 2 and n - 2)
     while n > 1 {
-        a = (n - 1) as f32 / (b * n as f32) * a + y;
+        a = T::from(n - 1).unwrap() / (b * T::from(n).unwrap()) * a + y;
         n -= 2;
     }
     a = if n == 0 {
         a / b.sqrt()
     } else {
-        (y.atan() + a / b) * (2.0 / PI)
+        (y.atan() + a / b) * (two / pi)
     };
-    start + sign * (z - a) / 2.0
+    Some(start + sign * (z - a) / two)
 }
 
 #[cfg(test)]
@@ -188,6 +202,6 @@ mod tests {
 
     #[test]
     fn student_cdf() {
-        print!("{}", cdf_student(100., 10.))
+        print!("{:?}", cdf_student(100f32, 10.))
     }
 }

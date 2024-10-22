@@ -40,24 +40,13 @@ where
     let one = T::one();
     let two = one + one;
     let pvalue = match test_type {
-        TestTSide::UpperOneSided => <f32 as NumCast>::from(stat)
-            .as_ref()
-            .map(cdf_n01)
-            .map(T::from)
-            .map(|val| val.map(|cdf_stat| one - cdf_stat)),
-        TestTSide::LowerOneSided => <f32 as NumCast>::from(stat)
-            .as_ref()
-            .map(cdf_n01)
-            .map(T::from),
-        TestTSide::TwoSided => <f32 as NumCast>::from(stat.abs())
-            .as_ref()
-            .map(cdf_n01)
-            .map(T::from)
-            .map(|val| val.map(|cdf_abs_stat| two * (one - cdf_abs_stat))),
+        TestTSide::UpperOneSided => cdf_n01(stat).map(|cdf_stat| one - cdf_stat),
+        TestTSide::LowerOneSided => cdf_n01(stat),
+        TestTSide::TwoSided => cdf_n01(stat).map(|cdf_abs_stat| two * (one - cdf_abs_stat)),
     };
     Some(TestOutput {
         statistics: stat,
-        pvalue: pvalue.unwrap(),
+        pvalue,
     })
 }
 
