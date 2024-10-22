@@ -10,7 +10,7 @@ where
     let mut m = T::zero();
     let mut n = T::zero();
     for x in sample {
-        m = m + x;
+        m = m + *x;
         n = n + T::one();
     }
     if n > T::zero() {
@@ -25,18 +25,18 @@ where
     T: num_traits::Float,
     for<'a> &'a S: IntoIterator<Item = &'a T>,
 {
-    let (mean, n) = if let Some(m) = mean(S) {
-        m
+    let (mean, mut n) = if let Some((m, s)) = mean(sample) {
+        (m, s)
     } else {
         return None;
     };
     let mut var = T::zero();
     for x in sample {
-        var = var + (x - mean).powi(2);
+        var = var + (*x - mean).powi(2);
         n = n + T::one();
     }
     if n > T::one() {
-        let mean = m / n;
+        let mean = mean / n;
         let var = (T::one() / n) * var;
         Some((var, mean, n))
     } else {
@@ -44,9 +44,8 @@ where
     }
 }
 
-/// Calcule la fonction de répartition
-/// de la loi normale centrée réduite en utilisant
-/// la formule proposée par [Dia (2023)][lien].
+/// Computes the cumulative distribution function of the standard normal using
+/// the formula of [Dia (2023)][lien].
 ///
 /// [lien]: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4487559
 pub(crate) fn cdf_n01(x: &f32) -> f32 {
@@ -70,9 +69,113 @@ pub(crate) fn cdf_n01(x: &f32) -> f32 {
         one_minus_cdf_abs_x
     }
 }
+
+/// Computes the cumulative distribution function of a Student with degree of
+/// freedom `n`.
+///
+/// Adapted from this [crate][page]
+///
+/// page: https://docs.rs/distrs/latest/src/distrs/students_t.rs.html#28-116
+pub(crate) fn cdf_student(x: f32, n: f32) -> f32 {
+    use core::f32::consts::PI;
+
+    // TODO support n > 0.0
+    if x.is_nan() || n.is_nan() || n < 1.0 {
+        return f32::NAN;
+    }
+
+    if x == f32::NEG_INFINITY {
+        return 0.0;
+    }
+
+    if x == f32::INFINITY {
+        return 1.0;
+    }
+
+    if n == f32::INFINITY {
+        return cdf_n01(&(x as f32)) as f32;
+    }
+
+    let (start, sign) = if x < 0.0 { (0.0, 1.0) } else { (1.0, -1.0) };
+
+    let mut z = 1.0;
+    let t = x * x;
+    let mut y = t / n;
+    let mut b = 1.0 + y;
+
+    if n > n.floor() || (n >= 20.0 && t < n) || n > 200.0 {
+        // asymptotic series for large or noninteger n
+        if y > 10e-6 {
+            y = b.ln();
+        }
+        let a = n - 0.5;
+        b = 48.0 * a * a;
+        y *= a;
+        y = (((((-0.4 * y - 3.3) * y - 24.0) * y - 85.5) / (0.8 * y * y + 100.0 + b) + y + 3.0)
+            / b
+            + 1.0)
+            * y.sqrt();
+        return start + sign * (cdf_n01(&(-y as f32)) as f32);
+    }
+
+    // make n mutable and int
+    // n is int between 1 and 200 if made it here
+    let mut n = n as u8;
+
+    if n < 20 && t < 4.0 {
+        // nested summation of cosine series
+        y = y.sqrt();
+        let mut a = y;
+        if n == 1 {
+            a = 0.0;
+        }
+
+        // loop
+        if n > 1 {
+            n -= 2;
+            while n > 1 {
+                a = (n - 1) as f32 / (b * n as f32) * a + y;
+                n -= 2;
+            }
+        }
+        a = if n == 0 {
+            a / b.sqrt()
+        } else {
+            (y.atan() + a / b) * (2.0 / PI)
+        };
+        return start + sign * (z - a) / 2.0;
+    }
+
+    // tail series expanation for large t-values
+    let mut a = b.sqrt();
+    y = a * n as f32;
+    let mut j = 0;
+    while a != z {
+        j += 2;
+        z = a;
+        y = y * (j - 1) as f32 / (b * j as f32);
+        a += y / (n + j) as f32;
+    }
+    z = 0.0;
+    y = 0.0;
+    a = -a;
+
+    // loop (without n + 2 and n - 2)
+    while n > 1 {
+        a = (n - 1) as f32 / (b * n as f32) * a + y;
+        n -= 2;
+    }
+    a = if n == 0 {
+        a / b.sqrt()
+    } else {
+        (y.atan() + a / b) * (2.0 / PI)
+    };
+    start + sign * (z - a) / 2.0
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{binary_treatment::BinaryTreatment, data::lalonde::*};
+    use crate::{binary_treatment::BinaryTreatment, cdf_student, data::lalonde::*};
     use ndarray::*;
     #[test]
     fn binary_treatment() {
@@ -81,5 +184,10 @@ mod tests {
         let mut binary_treatment: BinaryTreatment<f32> = BinaryTreatment::new();
         binary_treatment.fit(&treatment, &income);
         println!("{:#?}", binary_treatment);
+    }
+
+    #[test]
+    fn student_cdf() {
+        print!("{}", cdf_student(100., 10.))
     }
 }

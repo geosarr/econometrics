@@ -1,4 +1,4 @@
-use num_traits::Float;
+use num_traits::{Float, NumCast};
 
 use crate::{cdf_n01, mean, variance};
 
@@ -29,7 +29,7 @@ where
     for<'a> &'a S: IntoIterator<Item = &'a T>,
 {
     let stat = if let Some((mean, n_sample)) = mean(sample) {
-        if sigma > T::zero {
+        if sigma > T::zero() {
             (mean - mu0) * n_sample.sqrt() / sigma
         } else {
             return None;
@@ -40,19 +40,24 @@ where
     let one = T::one();
     let two = one + one;
     let pvalue = match test_type {
-        TestTSide::UpperOneSided => f32::from(stat)
+        TestTSide::UpperOneSided => <f32 as NumCast>::from(stat)
+            .as_ref()
             .map(cdf_n01)
             .map(T::from)
-            .map(|cdf_stat| one - cdf_stat),
-        TestTSide::LowerOneSided => f32::from(stat).map(cdf_n01).map(T::from),
-        TestTSide::TwoSided => f32::from(stat.abs())
+            .map(|val| val.map(|cdf_stat| one - cdf_stat)),
+        TestTSide::LowerOneSided => <f32 as NumCast>::from(stat)
+            .as_ref()
+            .map(cdf_n01)
+            .map(T::from),
+        TestTSide::TwoSided => <f32 as NumCast>::from(stat.abs())
+            .as_ref()
             .map(cdf_n01)
             .map(T::from)
-            .map(|cdf_abs_stat| two * (one - cdf_abs_stat)),
+            .map(|val| val.map(|cdf_abs_stat| two * (one - cdf_abs_stat))),
     };
     Some(TestOutput {
         statistics: stat,
-        pvalue,
+        pvalue: pvalue.unwrap(),
     })
 }
 

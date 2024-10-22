@@ -43,6 +43,7 @@ impl<F> BinaryTreatment<F> {
             return false;
         }
         let mean_output_treat = sum_output_treat / n_treat;
+        let mean_output_non_treat = sum_output_non_treat / n_non_treat;
         let candidate_causal_effect = mean_output_treat - mean_output_non_treat;
         let n_sample = n_non_treat + n_treat;
         let mean_output = (sum_output_non_treat + sum_output_treat) / n_sample;
