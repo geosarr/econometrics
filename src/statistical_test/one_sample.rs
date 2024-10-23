@@ -19,21 +19,15 @@ use super::{TestOutput, TestTSide};
 ///
 /// (c) H<sub>0</sub> : μ = μ<sub>0</sub> vs H<sub>1</sub> : μ != μ<sub>0</sub>
 /// (two-sided test).
-pub fn one_sample_ztest<S, T: Float>(
-    sample: &S,
+pub fn one_sample_ztest<T: Float>(
     mu0: T,
+    sample_mean: T,
+    sample_size: T,
     sigma: T,
     test_type: TestTSide,
-) -> Option<TestOutput<T, T>>
-where
-    for<'a> &'a S: IntoIterator<Item = &'a T>,
-{
-    let stat = if let Some((mean, n_sample)) = mean(sample) {
-        if sigma > T::zero() {
-            (mean - mu0) * n_sample.sqrt() / sigma
-        } else {
-            return None;
-        }
+) -> Option<TestOutput<T, T>> {
+    let stat = if sigma > T::zero() {
+        (sample_mean - mu0) * sample_size.sqrt() / sigma
     } else {
         return None;
     };
@@ -66,20 +60,15 @@ where
 ///
 /// (c) H<sub>0</sub> : μ = μ<sub>0</sub> vs H<sub>1</sub> : μ != μ<sub>0</sub>
 /// (two-sided test).
-pub fn one_sample_ttest<S, T: Float + FloatConst>(
-    sample: &S,
+pub fn one_sample_ttest<T: Float + FloatConst>(
     mu0: T,
+    sample_mean: T,
+    sample_size: T,
+    sample_var: T,
     test_type: TestTSide,
-) -> Option<TestOutput<T, T>>
-where
-    for<'a> &'a S: IntoIterator<Item = &'a T>,
-{
-    let (stat, n_sample) = if let Some((var, mean, n_sample)) = variance(sample) {
-        if var > T::zero() {
-            ((mean - mu0) * n_sample.sqrt() / var.sqrt(), n_sample)
-        } else {
-            return None;
-        }
+) -> Option<TestOutput<T, T>> {
+    let stat = if sample_var > T::zero() {
+        (sample_mean - mu0) * sample_size.sqrt() / sample_var.sqrt()
     } else {
         return None;
     };
@@ -87,11 +76,11 @@ where
     let two = one + one;
     let pvalue = match test_type {
         TestTSide::UpperOneSided => {
-            cdf_student(stat, n_sample - one).map(|cdf_stat| one - cdf_stat)
+            cdf_student(stat, sample_size - one).map(|cdf_stat| one - cdf_stat)
         }
-        TestTSide::LowerOneSided => cdf_student(stat, n_sample - one),
+        TestTSide::LowerOneSided => cdf_student(stat, sample_size - one),
         TestTSide::TwoSided => {
-            cdf_student(stat, n_sample - one).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
+            cdf_student(stat, sample_size - one).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
         }
     };
     Some(TestOutput {
