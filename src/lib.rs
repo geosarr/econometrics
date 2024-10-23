@@ -52,7 +52,7 @@ where
 ///
 /// [paper]: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4487559
 pub(crate) fn cdf_n01<T: num_traits::Float>(x: T) -> Option<T> {
-    let abs_x = if let Some(x) = <f32 as NumCast>::from(x) {
+    let abs_x = if let Some(x) = <f64 as NumCast>::from(x) {
         x
     } else {
         return None;
@@ -127,7 +127,7 @@ pub(crate) fn cdf_student<T: num_traits::Float + num_traits::FloatConst>(x: T, n
             / b
             + T::from(1.0).unwrap())
             * y.sqrt();
-        return cdf_n01(-y).map(|cdf_y| start + sign * cdf_y);
+        return cdf_n01(-y).map(|cdf_y| one - (start + sign * cdf_y));
     }
 
     // make n mutable and int
@@ -202,6 +202,11 @@ mod tests {
 
     #[test]
     fn student_cdf() {
-        print!("{:?}", cdf_student(100f32, 10.))
+        // let t = (25f64).sqrt() * (2800. - 3000.) / 600.;
+        // println!("{t}");
+        // println!("{:?}", 1. - cdf_student(t, 24.).unwrap());
+        // println!("{:?}", cdf_student(t, 24.).unwrap());
+        // println!("{:?}", 2. * (1. - cdf_student(t.abs(), 24.).unwrap()));
+        println!("{:?}", cdf_student(100., 10.));
     }
 }
