@@ -83,7 +83,7 @@ pub(crate) fn cdf_n01<T: num_traits::Float>(x: T) -> Option<T> {
 /// Adapted from this [crate][page]
 ///
 /// page: https://docs.rs/distrs/latest/src/distrs/students_t.rs.html#28-116
-pub(crate) fn cdf_student<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -> Option<T> {
+pub(crate) fn cdf_t<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -> Option<T> {
     let one = T::one();
     // TODO support n > 0.0
     if x.is_nan() || n.is_nan() || n < one {
@@ -189,7 +189,12 @@ pub(crate) fn cdf_student<T: num_traits::Float + num_traits::FloatConst>(x: T, n
 
 #[cfg(test)]
 mod tests {
-    use crate::{binary_treatment::BinaryTreatment, cdf_student, data::lalonde::*};
+    use crate::{
+        binary_treatment::BinaryTreatment,
+        cdf_t,
+        data::lalonde::*,
+        statistical_test::{two_sample_homoscedastic_ttest, TestTSide},
+    };
     use ndarray::*;
     #[test]
     fn binary_treatment() {
@@ -204,9 +209,19 @@ mod tests {
     fn student_cdf() {
         // let t = (25f64).sqrt() * (2800. - 3000.) / 600.;
         // println!("{t}");
-        // println!("{:?}", 1. - cdf_student(t, 24.).unwrap());
-        // println!("{:?}", cdf_student(t, 24.).unwrap());
-        // println!("{:?}", 2. * (1. - cdf_student(t.abs(), 24.).unwrap()));
-        println!("{:?}", cdf_student(100., 10.));
+        // println!("{:?}", 1. - cdf_t(t, 24.).unwrap());
+        // println!("{:?}", cdf_t(t, 24.).unwrap());
+        // println!("{:?}", 2. * (1. - cdf_t(t.abs(), 24.).unwrap()));
+        println!("{:?}", cdf_t(100., 10.));
+        println!(
+            "{:?}",
+            two_sample_homoscedastic_ttest(
+                0f64,
+                (1180., 1353.75),
+                (8., 8.),
+                (26.32218f64.powi(2), 28.02661f64.powi(2)),
+                TestTSide::TwoSided
+            )
+        );
     }
 }

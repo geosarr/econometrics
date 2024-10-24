@@ -1,6 +1,6 @@
 use num_traits::{Float, FloatConst, NumCast};
 
-use crate::{cdf_n01, cdf_student, mean, variance};
+use crate::{cdf_n01, cdf_t, mean, variance};
 
 use super::{TestOutput, TestTSide};
 
@@ -36,7 +36,7 @@ pub fn one_sample_ztest<T: Float>(
     let pvalue = match test_type {
         TestTSide::UpperOneSided => cdf_n01(stat).map(|cdf_stat| one - cdf_stat),
         TestTSide::LowerOneSided => cdf_n01(stat),
-        TestTSide::TwoSided => cdf_n01(stat).map(|cdf_abs_stat| two * (one - cdf_abs_stat)),
+        TestTSide::TwoSided => cdf_n01(stat.abs()).map(|cdf_abs_stat| two * (one - cdf_abs_stat)),
     };
     Some(TestOutput {
         statistics: stat,
@@ -75,12 +75,10 @@ pub fn one_sample_ttest<T: Float + FloatConst>(
     let one = T::one();
     let two = one + one;
     let pvalue = match test_type {
-        TestTSide::UpperOneSided => {
-            cdf_student(stat, sample_size - one).map(|cdf_stat| one - cdf_stat)
-        }
-        TestTSide::LowerOneSided => cdf_student(stat, sample_size - one),
+        TestTSide::UpperOneSided => cdf_t(stat, sample_size - one).map(|cdf_stat| one - cdf_stat),
+        TestTSide::LowerOneSided => cdf_t(stat, sample_size - one),
         TestTSide::TwoSided => {
-            cdf_student(stat, sample_size - one).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
+            cdf_t(stat.abs(), sample_size - one).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
         }
     };
     Some(TestOutput {
