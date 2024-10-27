@@ -1,9 +1,12 @@
-use num_traits::NumCast;
+use core::f64::consts::PI;
+use std::fmt::Debug;
 
-use super::cdf_n01;
+use num_traits::{Float, FloatConst, NumCast};
 
-/// Computes the cumulative distribution function of a Student with degree of
-/// freedom `n`.
+use super::{cdf_beta, cdf_n01, lgamma};
+
+/// Computes the CDF of the (central) Student's t-distribution with degree
+/// of freedom `n`.
 ///
 /// Adapted from this [crate][page]
 ///
@@ -57,7 +60,7 @@ pub(crate) fn cdf_t<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -
 
     // make n mutable and int
     // n is int between 1 and 200 if made it here
-    let mut n = <u8 as NumCast>::from(n).unwrap();
+    let mut n = <usize as NumCast>::from(n).unwrap();
     let pi = T::PI();
     let two = T::from(2.).unwrap();
 
@@ -112,11 +115,65 @@ pub(crate) fn cdf_t<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -
     Some(start + sign * (z - a) / two)
 }
 
+/// Computes the probability mass function of Poisson distribution
+fn poisson_pmf<T: Float + FloatConst>(lambda: T, k: T) -> T {
+    let zero = T::zero();
+    let one = T::one();
+    if lambda <= zero {
+        return if k == zero { one } else { zero };
+    }
+    let log_pmf = k * lambda.ln() - lambda - lgamma(k + one);
+    log_pmf.exp()
+}
+
+/// Computes the CDF of the non-central Student's t-distribution
+pub(crate) fn cdf_nt<T: Float + FloatConst + Debug>(t: T, df: T, ncp: T) -> Option<T> {
+    let zero = T::from(0.0).unwrap();
+    if !df.is_finite() || df <= zero {
+        return None;
+    }
+
+    if ncp == zero {
+        return cdf_t(t, df);
+    }
+
+    // Use series expansion for the non-central case
+    let max_terms = T::from(100.).unwrap();
+    let tolerance = T::from(1e-10).unwrap();
+
+    let lambda = T::from(0.5).unwrap() * ncp.powi(2);
+    let mut sum = Some(zero);
+    let mut term = Some(zero);
+    let mut k = zero;
+    let one = T::from(1.).unwrap();
+    let two = T::from(2.).unwrap();
+
+    while (k < max_terms) {
+        let poisson_term = poisson_pmf(lambda, k);
+        let adjusted_t = t - ncp * (k + one).sqrt() / df.sqrt();
+        let cdf_term = cdf_t(adjusted_t, df + two * k);
+        println!("adj: {:?}, k: {:?}, sum: {:?}\n", adjusted_t, cdf_term, sum);
+
+        term = cdf_term.map(|t| poisson_term * t);
+        if term.is_none() {
+            break;
+        }
+        if term.unwrap().abs() < tolerance {
+            break;
+        }
+        sum = term.zip(sum).map(|(t, s)| t + s);
+
+        k = k + one;
+    }
+
+    sum.map(|s| s.max(zero).min(one))
+}
+
 // const M_LN2: f64 = 0.693147180559945309417232121458;
 // const M_SQRT_2DPI: f64 = 0.797884560802865355879892119869;
 // const M_LN_SQRT_PI: f64 = 0.572364942924700087071713675677;
 
-// fn cdf_nt(t: f64, df: f64, ncp: isize) -> Option<f64> {
+// pub(crate) fn cdf_nt(t: f64, df: f64, ncp: f64) -> Option<f64> {
 //     let (mut albeta, mut a, mut b, mut del, mut errbd, mut lambda, mut rxb,
 // mut tt, mut x) =         (0., 0., 0., 0., 0., 0., 0., 0., 0.);
 //     let (mut geven, mut godd, mut p, mut q, mut s, mut tnc, mut xeven, mut
@@ -136,17 +193,17 @@ pub(crate) fn cdf_t<T: num_traits::Float + num_traits::FloatConst>(x: T, n: T) -
 //     if t >= 0. {
 //         negdel = false;
 //         tt = t;
-//         del = ncp as f64;
+//         del = ncp;
 //     } else {
 //         /* We deal quickly with left tail if extreme,
 //         since pt(q, df, ncp) <= pt(0, df, ncp) = \Phi(-ncp) */
 //         // if (ncp > 40) && (!log_p | !lower_tail) {
-//         if ncp > 40 {
+//         if ncp > 40. {
 //             return Some(0.);
 //         };
 //         negdel = true;
 //         tt = -t;
-//         del = -ncp as f64;
+//         del = -ncp;
 //     }
 
 //     if (df > 4e5) | (del.powi(2) > 2. * M_LN2 * (-f64::MIN_EXP as f64)) {

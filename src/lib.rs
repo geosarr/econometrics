@@ -33,16 +33,17 @@ mod tests {
         // println!("{:?}", cdf_t(t, 24.).unwrap());
         // println!("{:?}", 2. * (1. - cdf_t(t.abs(), 24.).unwrap()));
         // println!("{:?}", cdf_t(100., 10.));
-        // println!(
-        //     "{:?}",
-        //     two_sample_homoscedastic_ttest(
-        //         0f64,
-        //         (1180., 1353.75),
-        //         (8., 8.),
-        //         (26.32218f64.powi(2), 28.02661f64.powi(2)),
-        //         TestTSide::TwoSided
-        //     )
-        // );
-        println!("{}", lgamma(0.001));
+        println!(
+            "{:?}",
+            two_sample_homoscedastic_ttest(
+                0f64,
+                (1180., 1353.75),
+                (8., 8.),
+                (26.32218f64.powi(2), 28.02661f64.powi(2)),
+                TestTSide::TwoSided
+            )
+        );
+        // println!("{}", lgamma(0.001));
+        println!("{:?}", cdf_nt(1., 10., 1.));
     }
 }

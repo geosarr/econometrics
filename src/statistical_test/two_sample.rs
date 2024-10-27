@@ -1,6 +1,8 @@
+use std::fmt::Debug;
+
 use num_traits::{Float, FloatConst};
 
-use crate::cdf_t;
+use crate::cdf_nt;
 
 use super::{TestOutput, TestTSide};
 
@@ -28,7 +30,7 @@ use super::{TestOutput, TestTSide};
 ///
 /// (c) H<sub>0</sub> : ∆ = ∆<sub>0</sub> vs H<sub>1</sub> : ∆ != ∆<sub>0</sub>
 /// (two-sided test).
-pub fn two_sample_homoscedastic_ttest<T: Float + FloatConst>(
+pub fn two_sample_homoscedastic_ttest<T: Float + FloatConst + Debug>(
     delta0: T,
     sample_means: (T, T),
     sample_sizes: (T, T),
@@ -45,16 +47,17 @@ pub fn two_sample_homoscedastic_ttest<T: Float + FloatConst>(
         return None;
     }
     let var = (one / (n - two)) * ((n1 - one) * v1 + (n2 - one) * v2);
+    let sigma = var.sqrt();
     let stat = if var > T::zero() {
-        (m1 - m2 - delta0) / (var.sqrt() * (one / n1 + one / n2).sqrt())
+        (m1 - m2 - delta0) / (sigma * (one / n1 + one / n2).sqrt())
     } else {
         return None;
     };
     let pvalue = match test_type {
-        TestTSide::UpperOneSided => cdf_t(stat, n - two).map(|cdf_stat| one - cdf_stat),
-        TestTSide::LowerOneSided => cdf_t(stat, n - two),
+        TestTSide::UpperOneSided => cdf_nt(stat, n - two, stat).map(|cdf_stat| one - cdf_stat),
+        TestTSide::LowerOneSided => cdf_nt(stat, n - two, stat),
         TestTSide::TwoSided => {
-            cdf_t(stat.abs(), n - two).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
+            cdf_nt(stat.abs(), n - two, stat).map(|cdf_abs_stat| two * (one - cdf_abs_stat))
         }
     };
     Some(TestOutput {

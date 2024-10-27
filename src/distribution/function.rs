@@ -1,3 +1,7 @@
+use core::f64::consts::PI;
+
+use num_traits::{Float, FloatConst};
+
 /// Taken from https://en.wikipedia.org/wiki/Lanczos_approximation
 const GAMMA_G: f64 = 7.;
 const GAMMA_N: usize = 9;
@@ -13,19 +17,20 @@ const GAMMA_P: [f64; GAMMA_N] = [
     1.5056327351493116e-7,
 ];
 const GAMMA_EPS: f64 = 1e-07;
-const PI: f64 = 3.14159265358979323846264338327950288;
 
-pub(crate) fn lgamma(mut z: f64) -> f64 {
-    if z < 0.5 {
+pub(crate) fn lgamma<T: Float + FloatConst>(mut z: T) -> T {
+    let one_half = T::from(0.5).unwrap();
+    let one = T::from(1.).unwrap();
+    if z < one_half {
         // Reflection formula
-        PI.ln() - (PI * z).sin().ln() - lgamma(1. - z)
+        T::PI().ln() - (T::PI() * z).sin().ln() - lgamma(one - z)
     } else {
-        z -= 1.;
-        let mut x = GAMMA_P[0];
+        z = z - one;
+        let mut x = T::from(GAMMA_P[0]).unwrap();
         for i in 1..GAMMA_N {
-            x += GAMMA_P[i] / (z + (i as f64));
+            x = x + T::from(GAMMA_P[i]).unwrap() / (z + T::from(i).unwrap());
         }
-        let t = z + GAMMA_G + 0.5;
-        0.5 * (2. * PI).ln() + (z + 0.5) * t.ln() - t + x.ln()
+        let t = z + T::from(GAMMA_G).unwrap() + one_half;
+        one_half * (T::LN_2() + T::PI().ln()) + (z + one_half) * t.ln() - t + x.ln()
     }
 }
