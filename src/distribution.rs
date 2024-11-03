@@ -4,8 +4,8 @@ mod moment;
 mod normal;
 mod student;
 
-pub(crate) use beta::*;
-pub(crate) use function::*;
-pub(crate) use moment::*;
-pub(crate) use normal::*;
-pub(crate) use student::*;
+pub use beta::*;
+pub use function::*;
+pub use moment::*;
+pub use normal::*;
+pub use student::*;

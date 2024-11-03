@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use num_traits::{Float, FloatConst, NumCast};
 
-use super::{cdf_beta, cdf_n01, lgamma};
+use super::{cdf_beta, cdf_n01, lngamma};
 
 /// Computes the CDF of the (central) Student's t-distribution with degree
 /// of freedom `n`.
@@ -122,7 +122,7 @@ fn poisson_pmf<T: Float + FloatConst>(lambda: T, k: T) -> T {
     if lambda <= zero {
         return if k == zero { one } else { zero };
     }
-    let log_pmf = k * lambda.ln() - lambda - lgamma(k + one);
+    let log_pmf = k * lambda.ln() - lambda - lngamma(k + one);
     log_pmf.exp()
 }
 
@@ -148,7 +148,7 @@ pub(crate) fn cdf_nt<T: Float + FloatConst + Debug>(t: T, df: T, ncp: T) -> Opti
     let one = T::from(1.).unwrap();
     let two = T::from(2.).unwrap();
 
-    while (k < max_terms) {
+    while k < max_terms {
         let poisson_term = poisson_pmf(lambda, k);
         let adjusted_t = t - ncp * (k + one).sqrt() / df.sqrt();
         let cdf_term = cdf_t(adjusted_t, df + two * k);

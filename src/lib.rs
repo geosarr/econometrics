@@ -1,6 +1,6 @@
 pub mod binary_treatment;
 pub mod data;
-pub(crate) mod distribution;
+pub mod distribution;
 pub mod statistical_test;
 use num_traits::NumCast;
 

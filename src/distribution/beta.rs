@@ -1,11 +1,6 @@
 use std::f64;
 
-use super::lgamma;
-
-/// Computes the Beta function B(a, b)
-fn beta_function(a: f64, b: f64) -> f64 {
-    (lgamma(a) + lgamma(b) - lgamma(a + b)).exp()
-}
+use super::beta as beta_function;
 
 /// Computes the probability density function of Beta distribution
 fn pdf_beta(x: f64, alpha: f64, beta: f64) -> f64 {
