@@ -1,4 +1,5 @@
 pub mod binary_treatment;
+pub mod conditional_binary_treatment;
 pub mod data;
 pub mod distribution;
 pub mod statistical_test;
@@ -12,16 +13,37 @@ mod tests {
     use crate::{
         binary_treatment::BinaryTreatment,
         cdf_t,
+        conditional_binary_treatment::ConditionalBinaryTreatment,
         data::lalonde::*,
         statistical_test::{two_sample_homoscedastic_ttest, TestTSide},
     };
     use ndarray::*;
     #[test]
-    fn binary_treatment() {
+    fn bin_treat() {
         let income = Array::from_iter(RE78);
         let treatment = Array::from_iter(TREAT.iter().map(|v| *v as f32));
         let mut binary_treatment: BinaryTreatment<f32> = BinaryTreatment::new();
         binary_treatment.fit(&treatment, &income);
+        println!("{:#?}", binary_treatment);
+    }
+
+    #[test]
+    fn cond_bin_treat() {
+        let mut binary_treatment: ConditionalBinaryTreatment<f32> =
+            ConditionalBinaryTreatment::new();
+        binary_treatment.fit(
+            &[
+                [0., 1., 0., 0., 1.],
+                [0., 0., 0., 0., 1.],
+                [1., 1., 1., 0., 0.],
+            ],
+            &[0., 1., 2.],
+            &[
+                [0., 10., 6., 0., 1.],
+                [0., 20., 5., 8., 1.],
+                [10., 1., 1., 0., 0.],
+            ],
+        );
         println!("{:#?}", binary_treatment);
     }
 

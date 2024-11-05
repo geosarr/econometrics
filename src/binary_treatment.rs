@@ -6,6 +6,7 @@ use num_traits::Float;
 pub struct BinaryTreatment<F> {
     pub candidate_causal_effect: Option<F>,
     pub intercept: Option<F>,
+    pub sample_size: Option<F>,
 }
 
 impl<F> BinaryTreatment<F> {
@@ -13,6 +14,7 @@ impl<F> BinaryTreatment<F> {
         Self {
             candidate_causal_effect: None,
             intercept: None,
+            sample_size: None,
         }
     }
     pub fn fit<D, Y>(&mut self, treatment: &D, output: &Y) -> bool
@@ -40,7 +42,7 @@ impl<F> BinaryTreatment<F> {
             pos += 1;
         }
         if (n_non_treat == F::zero()) | (n_treat == F::zero()) {
-            return false;
+            return false; // TODO: error handling
         }
         let mean_output_treat = sum_output_treat / n_treat;
         let mean_output_non_treat = sum_output_non_treat / n_non_treat;
@@ -50,6 +52,7 @@ impl<F> BinaryTreatment<F> {
         let mean_treatment = sum_treatment / n_sample;
         self.intercept = Some(mean_output - candidate_causal_effect * mean_treatment);
         self.candidate_causal_effect = Some(candidate_causal_effect);
+        self.sample_size = Some(n_sample);
         true
     }
 }
